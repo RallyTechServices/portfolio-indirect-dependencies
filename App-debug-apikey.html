@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Portfolio Indirect Dependencies</title>
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed Aug 10 2016 14:11:13 GMT-0600 (MDT)";
+    </script>
+    
+    <script type="text/javascript" src="https://demo-west.rallydev.com/apps/2.1/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            Rally.loadScripts(["src/javascript/utils/__ts-info-link.js","src/javascript/utils/__ts-logger.js","src/javascript/app.js"],
+	            function() {
+	                Rally.launchApp('portfolio-indirect-dependencies', {
+	                    name: 'Portfolio Indirect Dependencies'
+	                })
+	            }, true);
+        });
+    </script>
+<link rel="stylesheet" type="text/css" href="src/style/app.css">
+
+</head>
+<body></body>
+</html>

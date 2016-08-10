@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Portfolio Indirect Dependencies</title>
+    <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Wed Aug 10 2016 14:11:13 GMT-0600 (MDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed Aug 10 2016 14:11:13 GMT-0600 (MDT)";
+        var BUILDER = "kcorkan";
+        var CHECKSUM = 4623476127;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350,
+    
+    informationalConfig: null,
+    
+    items: [{xtype:'container', itemId:'information' }],
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+       
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+   
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    var stored_checksum = me._generateChecksum(text);
+                    if ( CHECKSUM !== stored_checksum ) {
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _addToContainer: function(container){
+        var config = Ext.apply({
+            xtype:'container',
+            height: 200,
+            overflowY: true
+        }, this.informationalConfig);
+        
+        container.add(config);
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if ( !Ext.isEmpty( this.informationalConfig ) ) {
+            var container = this.down('#information');
+            this._addToContainer(container);
+            
+        }
+        
+        if (! app.isExternal() ) {
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            dock: 'bottom',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml,
+                doc: 'top'
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            dock:'bottom',
+            html:"This app was created by the CA AC Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html: Ext.String.format("Build date/time: {0} ({1})",
+                    APP_BUILD_DATE,
+                    BUILDER)
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define("portfolio-indirect-dependencies", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    items: [
+        {xtype:'container',itemId:'selector_box',layout: 'hbox'},
+        {xtype:'container',itemId:'display_box'}
+    ],
+
+    integrationHeaders : {
+        name : "portfolio-indirect-dependencies"
+    },
+                        
+    launch: function() {
+        this.initializeApp();
+    },
+    initializeApp: function(){
+        this.initializeComponents();
+    },
+    initializeComponents: function(){
+        this.getSelectorBox().removeAll();
+        this.down('#display_box').removeAll();
+
+        this.getSelectorBox().add({
+           xtype: 'rallyartifactsearchcombobox',
+            width: 500,
+            fieldLabel: 'Portfolio Item',
+            labelAlign: 'right',
+            storeConfig: {
+                models: ['portfolioitem/feature']
+            },
+            listeners: {
+               select: this.updateView,
+                scope: this
+            }
+
+        });
+    },
+    getSelectorBox: function(){
+        return this.down('#selector_box');
+    },
+    updateView: function(cb){
+        this.logger.log('updateView', cb.getValue());
+
+        this.fetchDescendentsWithDependencies(this.getFeatureName(), cb.getValue()).then({
+            success: this.fetchDependencies,
+            failure: this.showErrorNotification,
+            scope: this
+        });
+    },
+    showErrorNotification: function(msg){
+        Rally.ui.notify.Notifier.showError({message: msg});
+    },
+    getFeatureName: function(){
+        return 'Feature';
+    },
+    fetchDescendentsWithDependencies: function(property, ref){
+        this.logger.log('fetchDescendentsWithDependencies', property, ref);
+        var fetch = ['FormattedID','Name','Predecessors','ObjectID','Iteration','EndDate','Project'];
+
+        return this.fetchWsapiRecords({
+            model: 'HierarchicalRequirement',
+            fetch: fetch,
+            context: {project: null},
+            filters: [{
+                property: property,
+                value: ref
+            },{
+                property: 'Predecessors.ObjectID',
+                operator: '>',
+                value: 0
+            }],
+            limit: 'Infinity'
+        });
+    },
+    fetchDependencies: function(records){
+        this.logger.log('fetchDependencies', records);
+        this.down('#display_box').removeAll();
+        if (!records || records.length === 0){
+            this.down('#display_box').add({
+                xtype: 'container',
+                html: '<div class="no-data-container"><div class="secondary-message">There are no story predecessors for the selected Portfolio Item.</div></div>'
+            });
+            return;
+        }
+
+        var dependencyHash = {},
+            filters = [],
+            rootObjectIDs = [];
+
+        Ext.Array.each(records, function(r){
+            var recordData = r.getData();
+            dependencyHash[recordData.FormattedID] =recordData;
+            dependencyHash[recordData.FormattedID]._dependencies = [];
+            filters.push({
+                property: 'Successors.ObjectID',
+                value: recordData.ObjectID
+            });
+            rootObjectIDs.push(recordData.FormattedID);
+        });
+
+        this.dependencyHash = dependencyHash;
+        this.rootStories = rootObjectIDs;
+
+        filters = Rally.data.wsapi.Filter.or(filters);
+
+        this.fetchWsapiRecords({
+            model: 'HierarchicalRequirement',
+            fetch: ['Predecessors','ObjectID','FormattedID','Name','Project','ScheduleState','Successors:summary[FormattedID]'],
+            filters: filters
+        }).then({
+            success: this.updateDependencyGrid,
+            failure: this.showErrorNotification,
+            scope: this
+        })
+
+    },
+    getSuccessorsFromSummary: function(summary){
+        var summaryObjs = summary && summary.Successors && summary.Successors.FormattedID;
+        if (!summaryObjs){
+            return [];
+        }
+        var objIds = Ext.Object.getKeys(summaryObjs);
+        this.logger.log('getSuccessorsFromSummary', summary,objIds);
+        return objIds;
+
+    },
+    updateDependencyGrid: function(dependencies){
+        this.logger.log('updateDependencyGrid', dependencies, this.dependencyHash);
+
+
+        Ext.Array.each(dependencies, function(d){
+            var obj = d.getData();
+            obj._dependencies = [];
+            this.dependencyHash[obj.FormattedID] = obj;
+
+            var successors = this.getSuccessorsFromSummary(obj.Summary);
+            Ext.Array.each(successors, function(s){
+                if (this.dependencyHash[s]){
+                    this.dependencyHash[s]._dependencies.push(obj);
+                } else {
+                    //Warning!
+                }
+
+            },this);
+        }, this );
+
+        this.logger.log('updateDependencyGrid', this.dependencyHash);
+
+
+        var addDependencyColumns = function(rec, idx, row){
+            row['col' + idx] = rec._dependencies || [];
+            //row[idx] = rec._dependencies || [];
+            Ext.Array.each(row[idx], function(r){
+                row = addDependencyColumns(r, idx+1, row);
+            });
+            return row;
+        }
+
+        var data = [],
+            maxCols = 0;
+        Ext.Array.each(this.rootStories, function(oid){
+            var row = {}, idx = 0;
+            row.col0 = [this.dependencyHash[oid]];
+            row = addDependencyColumns(this.dependencyHash[oid],1,row);
+            data.push(row);
+            maxCols = Math.max(Object.keys(row).length, maxCols);
+        }, this );
+        this.logger.log('data',data,maxCols);
+
+        this.down('#display_box').add({
+            xtype: 'rallygrid',
+            columnCfgs: this.getColumnCfgs(maxCols),
+            store: Ext.create('Rally.data.custom.Store',{
+                data: data
+            })
+        });
+    },
+    getColumnCfgs: function(maxCols){
+        var cols = [{
+            xtype: 'templatecolumn',
+            dataIndex: 'col0',
+            text: 'Feature Story (Team)',
+            flex: 1,
+            tpl: '<tpl for=".">{values.FormattedID}</tpl>',
+            renderer: function(v,m,r){
+                var tpl = Ext.create('Ext.XTemplate', '<tpl for=".">',       // process the data.kids node
+                    '<p>{FormattedID}:  {Name} ({Project.Name}) </p>',  // use current array index to autonumber
+                    '</tpl>')
+                return tpl.apply(v);
+            }
+        }];
+        for (var i=1; i<maxCols; i++){
+            cols.push({
+                xtype: 'templatecolumn',
+                dataIndex: 'col' + i,
+                flex: 1,
+                text: 'Predecessors Level ' + i + ' (Team)',
+                tpl: '<tpl for=".">{FormattedID}</br></tpl>',
+                renderer: function(v,m,r){
+                    var tpl = Ext.create('Ext.XTemplate', '<tpl for=".">',       // process the data.kids node
+                        '<p>{FormattedID}:  {Name} ({Project.Name})</p>',  // use current array index to autonumber
+                        '</tpl>')
+                    return tpl.apply(v);
+                }
+            });
+        }
+        return cols;
+
+    },
+
+    fetchWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        this.logger.log('fetchWsapiRecords', config);
+        Ext.create('Rally.data.wsapi.Store',config).load({
+            callback: function(records, operation){
+                this.logger.log('fetchWsapiRecords callback', records, operation);
+                if (operation.wasSuccessful()){
+                    deferred.resolve(records);
+                } else {
+                    deferred.reject('Error fetching records: ' + operation.error.errors.join(','));
+                }
+            },
+            scope: this
+        });
+
+        return deferred;
+    },
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
+});
+
+            
+               Rally.launchApp('portfolio-indirect-dependencies', {
+                   name: 'Portfolio Indirect Dependencies'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
