@@ -11,12 +11,24 @@ Ext.define("portfolio-indirect-dependencies", {
     integrationHeaders : {
         name : "portfolio-indirect-dependencies"
     },
-                        
+
+    portfolioItemTypes: ['portfolioitem/feature','portfolioitem/initiative'],
+
     launch: function() {
         this.initializeApp();
     },
     initializeApp: function(){
-        this.initializeComponents();
+        Rally.data.ModelFactory.getModel({
+            type: 'HierarchicalRequirement',
+            success: function(model) {
+                this.scheduleStates = model.getField('ScheduleState').getAllowedStringValues();
+                this.initializeComponents();
+                //Use the defect model here
+            },
+            scope: this
+        });
+
+
     },
     initializeComponents: function(){
         this.getSelectorBox().removeAll();
@@ -28,7 +40,7 @@ Ext.define("portfolio-indirect-dependencies", {
             fieldLabel: 'Portfolio Item',
             labelAlign: 'right',
             storeConfig: {
-                models: ['portfolioitem/feature']
+                models: this.portfolioItemTypes
             },
             listeners: {
                select: this.updateView,
@@ -43,11 +55,14 @@ Ext.define("portfolio-indirect-dependencies", {
     updateView: function(cb){
         this.logger.log('updateView', cb.getValue());
 
-        this.fetchDescendentsWithDependencies(this.getFeatureName(), cb.getValue()).then({
-            success: this.fetchDependencies,
-            failure: this.showErrorNotification,
-            scope: this
-        });
+        if (cb.getRecord()){
+            this.fetchDescendentsWithDependencies(cb.getRecord().get('_type'), cb.getValue()).then({
+                success: this.fetchDependencies,
+                failure: this.showErrorNotification,
+                scope: this
+            });
+        }
+
     },
     showErrorNotification: function(msg){
         Rally.ui.notify.Notifier.showError({message: msg});
@@ -55,9 +70,17 @@ Ext.define("portfolio-indirect-dependencies", {
     getFeatureName: function(){
         return 'Feature';
     },
-    fetchDescendentsWithDependencies: function(property, ref){
-        this.logger.log('fetchDescendentsWithDependencies', property, ref);
-        var fetch = ['FormattedID','Name','Predecessors','ObjectID','Iteration','EndDate','Project'];
+    fetchDescendentsWithDependencies: function(type, ref){
+        this.logger.log('fetchDescendentsWithDependencies', type, ref);
+        var fetch = ['FormattedID','Name',this.getFeatureName(),'Predecessors','ObjectID','Iteration','EndDate','Project'];
+
+        var idx = _.indexOf(this.portfolioItemTypes, type);
+        var property = this.getFeatureName();
+        if (idx > 0){
+            property = property + '.Parent';
+        }
+
+
 
         return this.fetchWsapiRecords({
             model: 'HierarchicalRequirement',
@@ -91,8 +114,9 @@ Ext.define("portfolio-indirect-dependencies", {
 
         Ext.Array.each(records, function(r){
             var recordData = r.getData();
-            dependencyHash[recordData.FormattedID] =recordData;
+            dependencyHash[recordData.FormattedID] = recordData;
             dependencyHash[recordData.FormattedID]._dependencies = [];
+
             filters.push({
                 property: 'Successors.ObjectID',
                 value: recordData.ObjectID
@@ -107,7 +131,9 @@ Ext.define("portfolio-indirect-dependencies", {
 
         this.fetchWsapiRecords({
             model: 'HierarchicalRequirement',
-            fetch: ['Predecessors','ObjectID','FormattedID','Name','Project','ScheduleState','Successors:summary[FormattedID]'],
+            fetch: ['Predecessors', 'ObjectID','FormattedID','Name','Project','ScheduleState','Successors:summary[FormattedID], Iteration'],
+            context: { project: null},
+            compress: false,
             filters: filters
         }).then({
             success: this.updateDependencyGrid,
@@ -126,6 +152,7 @@ Ext.define("portfolio-indirect-dependencies", {
         return objIds;
 
     },
+
     updateDependencyGrid: function(dependencies){
         this.logger.log('updateDependencyGrid', dependencies, this.dependencyHash);
 
@@ -162,7 +189,9 @@ Ext.define("portfolio-indirect-dependencies", {
             maxCols = 0;
         Ext.Array.each(this.rootStories, function(oid){
             var row = {}, idx = 0;
-            row.col0 = [this.dependencyHash[oid]];
+            console.log('x',this.dependencyHash[oid])
+            row.Feature = this.dependencyHash[oid].Feature;
+            row.col0 = this.dependencyHash[oid];
             row = addDependencyColumns(this.dependencyHash[oid],1,row);
             data.push(row);
             maxCols = Math.max(Object.keys(row).length, maxCols);
@@ -173,35 +202,49 @@ Ext.define("portfolio-indirect-dependencies", {
             xtype: 'rallygrid',
             columnCfgs: this.getColumnCfgs(maxCols),
             store: Ext.create('Rally.data.custom.Store',{
-                data: data
-            })
+                data: data,
+                pageSize: data.length
+            }),
+            showPagingToolbar: false,
+            allowEditing: false,
+            showRowActionsColumn: false,
+            enableBulkEdit: false
         });
     },
+
     getColumnCfgs: function(maxCols){
+        var states = this.scheduleStates;
+
         var cols = [{
-            xtype: 'templatecolumn',
+            dataIndex: 'Feature',
+            text: 'Feature',
+            flex: 1,
+            renderer: function (v, m, r) {
+                console.log('v', v);
+                m.tdCls = 'successor';
+                var tpl = Ext.create('Rally.ui.renderer.template.FormattedIDTemplate');
+                return Ext.String.format("{0}: {1}", tpl.apply(v), v.Name);
+            }
+        },{
             dataIndex: 'col0',
             text: 'Feature Story (Team)',
             flex: 1,
-            tpl: '<tpl for=".">{values.FormattedID}</tpl>',
             renderer: function(v,m,r){
-                var tpl = Ext.create('Ext.XTemplate', '<tpl for=".">',       // process the data.kids node
-                    '<p>{FormattedID}:  {Name} ({Project.Name}) </p>',  // use current array index to autonumber
-                    '</tpl>')
-                return tpl.apply(v);
+                console.log('v',v);
+                m.tdCls = 'successor';
+                var tpl = Ext.create('Rally.ui.renderer.template.FormattedIDTemplate');
+                return Ext.String.format("{0}: {1}", tpl.apply(v), v.Name);
             }
         }];
-        for (var i=1; i<maxCols; i++){
+        for (var i=1; i<maxCols-1; i++){
             cols.push({
-                xtype: 'templatecolumn',
                 dataIndex: 'col' + i,
-                flex: 1,
-                text: 'Predecessors Level ' + i + ' (Team)',
-                tpl: '<tpl for=".">{FormattedID}</br></tpl>',
+                flex: 3,
+                text: 'Predecessors',
                 renderer: function(v,m,r){
-                    var tpl = Ext.create('Ext.XTemplate', '<tpl for=".">',       // process the data.kids node
-                        '<p>{FormattedID}:  {Name} ({Project.Name})</p>',  // use current array index to autonumber
-                        '</tpl>')
+                    var tpl = Ext.create('CArABU.technicalservices.PredecessorTemplate',{
+                        scheduleStates: states
+                    });
                     return tpl.apply(v);
                 }
             });

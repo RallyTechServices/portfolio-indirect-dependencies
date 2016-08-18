@@ -15,3 +15,52 @@
     margin-right: 5px;
     cursor: pointer;
 }
+
+.predecessors-table .predecessorsandsuccessors-cnt {
+    color: #337ec6;
+    font-family: NotoSansBold,Helvetica,Arial;
+    font-weight: normal;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.predecessors-table {
+    width: 100%;
+}
+
+.predecessors-table .td {
+    width: 20%;
+}
+
+.predecessors-table .predecessors-header {
+    color: #222;
+    cursor: default;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    font-size: 10px;
+    font-weight: normal;
+    line-height: 12px;
+    margin-right: 0;
+    overflow: hidden;
+    padding-top: 3px!important;
+    padding-bottom: 3px!important;
+    text-transform: uppercase;
+    text-overflow: clip;
+}
+.successor {
+    vertical-align: middle!important;
+}
+
+.predecessor {
+    color: #888888;
+    cursor: default;
+    font-family: ProximaNovaSemiBold,Helvetica,Arial;
+    font-size: 11px;
+    font-weight: normal;
+    line-height: 12px;
+    margin-right: 0;
+    overflow: hidden;
+    padding-top: 3px!important;
+    padding-bottom: 3px!important;
+    text-transform: uppercase;
+    text-overflow: clip;
+}
